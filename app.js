@@ -166,7 +166,7 @@ app.post("/loginSubmit", async (req, res) => {
     .toArray();
 
   if (result.length != 1) {
-    return res.send(`Invalid email. <a href="/login">Try again</a>`);
+    return res.send(`Email doesn't exist. <a href="/login">Try again</a>`);
   }
   if (await bcrypt.compare(password, result[0].password)) {
     req.session.authenticated = true;
