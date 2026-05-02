@@ -29,7 +29,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 const mongoStore = MongoStore.create({
-  mongoUrl: `mongodb+srv://${mongodb_user}:${encodeURIComponent(mongodb_password)}@${mongodb_host}/${mongodb_session_database}`,
+  mongoUrl: `mongodb+srv://${mongodb_user}:${mongodb_password}@${mongodb_host}/${mongodb_session_database}`,
+  collectionName: "session_collection",
   crypto: {
     secret: mongodb_session_secret,
   },
@@ -45,7 +46,8 @@ app.use(
 );
 
 app.get("/", (req, res) => {
-  res.send(`
+  if (!req.session.authenticated) {
+    res.send(`
         <h1>Home</h1>
         <a href="/signUp">
         <button>Sign Up</button>
@@ -54,11 +56,18 @@ app.get("/", (req, res) => {
         <button>Login</button>
         </a>
         `);
+  } else {
+    res.send(`
+            <h1>Hello, ${req.session.username}</h1>
+            <a href="/members"><button>Go to Members Area</button></a><br>
+            <a href="/logout">Logout</a>
+            `);
+  }
 });
 
 app.get("/signUp", (req, res) => {
   let html = `
-        Sign Up
+        Create User
         <form action="/signupSubmit" method="post">
         <input type="text" name="username" placeholder="username">
         <input type="email" name="email" placeholder="email">
@@ -94,7 +103,7 @@ app.post("/signupSubmit", async (req, res) => {
     return res.send(`Invalid input. <a href="/signUp">Try again</a>`);
   }
 
-  const hashedPassword = await bcrypt.hash(password, saltRound);
+  const hashedPassword = await bcrypt.hashSync(password, saltRound);
 
   await userCollection.insertOne({
     username: username,
@@ -103,10 +112,10 @@ app.post("/signupSubmit", async (req, res) => {
   });
 
   req.session.username = username;
-  req.session.email = email;
   req.session.authenticated = true;
+  req.session.cookie.maxAge = expireTime;
 
-  res.redirect("/members");
+  res.redirect("/");
 });
 
 app.get("/login", (req, res) => {
@@ -125,6 +134,13 @@ app.post("/loginSubmit", async (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
 
+  if (!email) {
+    return res.send(`Email is required. <a href="/login">Try again</a>`);
+  }
+  if (!password) {
+    return res.send(`Password is required. <a href="/login">Try again</a>`);
+  }
+
   const schema = Joi.object({
     email: Joi.string().max(20).required(),
     password: Joi.string().max(20).required(),
@@ -132,32 +148,30 @@ app.post("/loginSubmit", async (req, res) => {
 
   const validationResult = schema.validate({ email, password });
   if (validationResult.error != null) {
-    return res.send(
-      `Invalid email/password combination <a href="/login">Try again</a>`,
-    );
-    return;
+    return res.send(`Invalid email/password. <a href="/login">Try again</a>`);
   }
 
   const result = await userCollection
     .find({ email: email })
     .project({ username: 1, email: 1, password: 1, _id: 1 })
     .toArray();
+
   if (result.length != 1) {
-    console.log("user not found");
-    res.redirect("/login");
-    return;
+    return res.send(
+      `Invalid email/password combination. <a href="/login">Try again</a>`,
+    );
   }
   if (await bcrypt.compareSync(password, result[0].password)) {
     req.session.authenticated = true;
     req.session.username = result[0].username;
     req.session.cookie.maxAge = expireTime;
 
-    res.redirect("/members");
+    res.redirect("/");
     return;
   } else {
-    console.log("incorrect password");
-    res.redirect("/login");
-    return;
+    return res.send(
+      `Invalid email/password combination. <a href="/login">Try again</a>`,
+    );
   }
 });
 
