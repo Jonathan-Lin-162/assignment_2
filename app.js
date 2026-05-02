@@ -124,7 +124,7 @@ app.post("/signupSubmit", async (req, res) => {
   req.session.authenticated = true;
   req.session.cookie.maxAge = expireTime;
 
-  return res.redirect("/");
+  return res.redirect("/members");
 });
 
 app.get("/login", (req, res) => {
@@ -166,20 +166,16 @@ app.post("/loginSubmit", async (req, res) => {
     .toArray();
 
   if (result.length != 1) {
-    return res.send(
-      `Invalid email/password combination. <a href="/login">Try again</a>`,
-    );
+    return res.send(`Invalid email. <a href="/login">Try again</a>`);
   }
   if (await bcrypt.compare(password, result[0].password)) {
     req.session.authenticated = true;
     req.session.username = result[0].username;
     req.session.cookie.maxAge = expireTime;
 
-    return res.redirect("/");
+    return res.redirect("/members");
   } else {
-    return res.send(
-      `Invalid email/password combination. <a href="/login">Try again</a>`,
-    );
+    return res.send(`Invalid password. <a href="/login">Try again</a>`);
   }
 });
 
