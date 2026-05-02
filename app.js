@@ -5,7 +5,7 @@ const session = require("express-session");
 const MongoStore = require("connect-mongo").default;
 const bcrypt = require("bcrypt");
 const Joi = require("joi");
-const port = process.env.port || 3000;
+const port = process.env.PORT || 3000;
 const saltRound = 12;
 
 const app = express();
@@ -42,6 +42,9 @@ app.use(
     store: mongoStore,
     saveUninitialized: false,
     resave: true,
+    cookies: {
+      maxAge: expireTime,
+    },
   }),
 );
 
@@ -94,7 +97,7 @@ app.post("/signupSubmit", async (req, res) => {
   }
   const schema = Joi.object({
     username: Joi.string().alphanum().max(20).required(),
-    email: Joi.string().max(20).required(),
+    email: Joi.string().email().required(),
     password: Joi.string().max(20).required(),
   });
 
@@ -103,7 +106,13 @@ app.post("/signupSubmit", async (req, res) => {
     return res.send(`Invalid input. <a href="/signUp">Try again</a>`);
   }
 
-  const hashedPassword = await bcrypt.hashSync(password, saltRound);
+  const existingUser = await userCollection.findOne({ email });
+
+  if (existingUser) {
+    return res.send(`Email already exists. <a href="/signUp">Try again</a>`);
+  }
+
+  const hashedPassword = await bcrypt.hash(password, saltRound);
 
   await userCollection.insertOne({
     username: username,
@@ -115,7 +124,7 @@ app.post("/signupSubmit", async (req, res) => {
   req.session.authenticated = true;
   req.session.cookie.maxAge = expireTime;
 
-  res.redirect("/");
+  return res.redirect("/");
 });
 
 app.get("/login", (req, res) => {
@@ -142,7 +151,7 @@ app.post("/loginSubmit", async (req, res) => {
   }
 
   const schema = Joi.object({
-    email: Joi.string().max(20).required(),
+    email: Joi.string().email().required(),
     password: Joi.string().max(20).required(),
   });
 
@@ -161,13 +170,12 @@ app.post("/loginSubmit", async (req, res) => {
       `Invalid email/password combination. <a href="/login">Try again</a>`,
     );
   }
-  if (await bcrypt.compareSync(password, result[0].password)) {
+  if (await bcrypt.compare(password, result[0].password)) {
     req.session.authenticated = true;
     req.session.username = result[0].username;
     req.session.cookie.maxAge = expireTime;
 
-    res.redirect("/");
-    return;
+    return res.redirect("/");
   } else {
     return res.send(
       `Invalid email/password combination. <a href="/login">Try again</a>`,
@@ -177,12 +185,12 @@ app.post("/loginSubmit", async (req, res) => {
 
 app.get("/logout", (req, res) => {
   req.session.destroy();
-  res.redirect("/");
+  return res.redirect("/");
 });
 
 app.get("/members", (req, res) => {
   if (!req.session.authenticated) {
-    res.redirect("/");
+    return res.redirect("/");
   }
 
   const images = ["image1.jpg", "image2.jpg", "image3.jpg"];
@@ -190,7 +198,7 @@ app.get("/members", (req, res) => {
 
   res.send(`
       <h2>Hello, ${req.session.username}.</h2>
-      <img src=image/${randomImage} alt="image" width="300px">
+      <img src="/image/${randomImage}" alt="image" width="300px">
       <a href="/logout">
       <button>Logout</button>
       </a>  
