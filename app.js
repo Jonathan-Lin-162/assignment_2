@@ -15,14 +15,16 @@ const mongodb_host = process.env.MONGODB_HOST;
 const mongodb_user = process.env.MONGODB_USER;
 const mongodb_password = process.env.MONGODB_PASSWORD;
 const mongodb_user_database = process.env.MONGODB_USER_DATABASE;
+const mongodb_user_collection = process.env.MONGODB_USER_COLLECTION;
 const mongodb_session_database = process.env.MONGODB_SESSION_DATABASE;
+const mongodb_session_collection = process.env.MONGODB_SESSION_COLLECTION;
 const mongodb_session_secret = process.env.MONGODB_SESSION_SECRET;
 const node_session_secret = process.env.NODE_SESSION_SECRET;
 
 const { database } = include("databaseConnection");
 const userCollection = database
   .db(mongodb_user_database)
-  .collection("user_collection");
+  .collection(mongodb_user_collection);
 
 app.use(express.static(__dirname + "/public"));
 app.use(express.urlencoded({ extended: true }));
@@ -30,7 +32,7 @@ app.use(express.json());
 
 const mongoStore = MongoStore.create({
   mongoUrl: `mongodb+srv://${mongodb_user}:${mongodb_password}@${mongodb_host}/${mongodb_session_database}`,
-  collectionName: "session_collection",
+  collectionName: mongodb_session_collection,
   crypto: {
     secret: mongodb_session_secret,
   },
