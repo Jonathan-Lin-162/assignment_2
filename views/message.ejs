@@ -1,0 +1,29 @@
+<%- include("templates/header", {navLinks: navLinks, folder: folder}) %>
+
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+
+      <div class="alert alert-warning text-center shadow-sm" role="alert">
+
+        <p class="mb-3">
+          <%= message %>
+        </p>
+        
+        <% if (redirect === ""){ %>
+        <a href="/" class="btn btn-primary">
+          Go to home page
+        </a>
+        <% } else{ %>
+        <a href="/<%= redirect %>" class="btn btn-primary">
+          Try again
+        </a>
+        <% } %>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<%- include("templates/footer") %>

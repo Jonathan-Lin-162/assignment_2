@@ -1,0 +1,40 @@
+<li class="list-group-item">
+  <div
+    class="d-flex justify-content-between align-items-center flex-wrap gap-3"
+  >
+    <div>
+        <% if (currentEmail === user.email) { %>
+            <h5 class="mb-1">Name: <%= user.username %> <span class="text-danger">(You)</span></h5>
+       <% } else{ %>
+        <h5 class="mb-1">Name: <%= user.username %></h5>
+        <% } %>
+      
+      User type: 
+      <% if (user.user_type === "admin") { %>
+            <span class="badge bg-success"><%= user.user_type %> </span>
+       <% } else{ %>
+        <span class="badge bg-secondary"><%= user.user_type %> </span>
+        <% } %>
+
+      <p class="text-muted mb-0 mt-1">Email: <%= user.email %></p>
+    </div>
+
+    <div class="d-flex gap-2">
+
+      <% if (currentEmail != user.email) { %>
+        <form action="/admin/promote" method="POST">
+        <input type="hidden" name="email" value="<%= user.email %>" />
+
+        <button type="submit" class="btn btn-success btn-sm">Promote</button>
+      </form>
+
+      <form action="/admin/demote" method="POST">
+        <input type="hidden" name="email" value="<%= user.email %>" />
+
+        <button type="submit" class="btn btn-warning btn-sm">Demote</button>
+      </form>
+      <% } %>
+      
+    </div>
+  </div>
+</li>

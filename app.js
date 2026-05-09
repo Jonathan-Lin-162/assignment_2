@@ -30,6 +30,8 @@ app.use(express.static(__dirname + "/public"));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
+app.set("view engine", "ejs");
+
 const mongoStore = MongoStore.create({
   mongoUrl: `mongodb+srv://${mongodb_user}:${mongodb_password}@${mongodb_host}/${mongodb_session_database}`,
   collectionName: mongodb_session_collection,
@@ -38,49 +40,102 @@ const mongoStore = MongoStore.create({
   },
 });
 
+const navLinks = [
+  { name: "Home", url: "/" },
+  { name: "Login", url: "/login" },
+  { name: "Members", url: "/members" },
+  { name: "Admin", url: "/admin" },
+  { name: "Logout", url: "/logout" },
+];
+
+const signupSchema = Joi.object({
+  username: Joi.string().alphanum().max(20).required(),
+  email: Joi.string().email().required(),
+  password: Joi.string().max(20).required(),
+});
+
+const loginSchema = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().max(20).required(),
+});
+
+const emailSchema = Joi.string().email().required();
+
 app.use(
   session({
     secret: node_session_secret,
     store: mongoStore,
     saveUninitialized: false,
     resave: true,
-    cookies: {
+    cookie: {
       maxAge: expireTime,
     },
   }),
 );
 
-app.get("/", (req, res) => {
-  if (!req.session.authenticated) {
-    res.send(`
-        <h1>Home</h1>
-        <a href="/signUp">
-        <button>Sign Up</button>
-        </a>
-        <a href="/login">
-        <button>Login</button>
-        </a>
-        `);
+function getPath(req) {
+  const pathFolders = req.path.split("/").slice(1);
+  const folder = "/" + pathFolders[0];
+  return folder;
+}
+
+function isValidSession(req, res, next) {
+  if (req.session.authenticated) {
+    return next();
+  }
+  res.redirect("/login");
+}
+
+function isAdmin(req) {
+  return req.session.user_type === "admin";
+}
+
+function adminAuthorization(req, res, next) {
+  const folder = getPath(req);
+  if (!isAdmin(req)) {
+    res.status(403);
+    return res.render("message", {
+      navLinks: navLinks,
+      folder: folder,
+      message: "You are not authorized.",
+      redirect: "",
+    });
   } else {
-    res.send(`
-            <h1>Hello, ${req.session.username}</h1>
-            <a href="/members"><button>Go to Members Area</button></a><br>
-            <a href="/logout">Logout</a>
-            `);
+    next();
+  }
+}
+
+function displayMessage(res, navLinks, folder, redirect, message) {
+  return res.render("message", {
+    folder: folder,
+    message: message,
+    redirect: redirect,
+    navLinks: navLinks,
+  });
+}
+
+app.get("/", (req, res) => {
+  const folder = getPath(req);
+  if (!req.session.authenticated) {
+    res.render("index", {
+      navLinks: navLinks,
+      folder: folder,
+    });
+  } else {
+    res.render("main", {
+      username: req.session.username,
+      navLinks: navLinks,
+      folder: folder,
+    });
   }
 });
 
 app.get("/signUp", (req, res) => {
-  let html = `
-        Create User
-        <form action="/signupSubmit" method="post">
-        <input type="text" name="username" placeholder="username">
-        <input type="email" name="email" placeholder="email">
-        <input type="password" name="password" placeholder="password">
-        <input type="submit" value="submit">
-        </form>
-        `;
-  res.send(html);
+  const folder = getPath(req);
+  res.render("signup", {
+    navLinks: navLinks,
+    folder: folder,
+  });
 });
 
 app.post("/signupSubmit", async (req, res) => {
@@ -88,30 +143,51 @@ app.post("/signupSubmit", async (req, res) => {
   let email = req.body.email;
   let password = req.body.password;
 
+  const folder = getPath(req);
+
   if (!username) {
-    return res.send(`User Name is required. <a href="/signUp">Try again</a>`);
+    return displayMessage(
+      res,
+      navLinks,
+      folder,
+      "signUp",
+      "User name is required.",
+    );
   }
   if (!email) {
-    return res.send(`Email is required. <a href="/signUp">Try again</a>`);
+    return displayMessage(
+      res,
+      navLinks,
+      folder,
+      "signUp",
+      "Email is required.",
+    );
   }
   if (!password) {
-    return res.send(`Password is required. <a href="/signUp">Try again</a>`);
+    return displayMessage(
+      res,
+      navLinks,
+      folder,
+      "signUp",
+      "Password is required.",
+    );
   }
-  const schema = Joi.object({
-    username: Joi.string().alphanum().max(20).required(),
-    email: Joi.string().email().required(),
-    password: Joi.string().max(20).required(),
-  });
 
-  const result = schema.validate({ username, email, password });
-  if (result.error != null) {
-    return res.send(`Invalid input. <a href="/signUp">Try again</a>`);
+  const result = signupSchema.validate({ username, email, password });
+  if (result.error) {
+    return displayMessage(res, navLinks, folder, "signUp", "Invalid input.");
   }
 
   const existingUser = await userCollection.findOne({ email });
 
   if (existingUser) {
-    return res.send(`Email already exists. <a href="/signUp">Try again</a>`);
+    return displayMessage(
+      res,
+      navLinks,
+      folder,
+      "signUp",
+      "Email already exists.",
+    );
   }
 
   const hashedPassword = await bcrypt.hash(password, saltRound);
@@ -120,64 +196,76 @@ app.post("/signupSubmit", async (req, res) => {
     username: username,
     email: email,
     password: hashedPassword,
+    user_type: "user",
   });
 
   req.session.username = username;
+  req.session.email = email;
   req.session.authenticated = true;
+  req.session.user_type = "user";
   req.session.cookie.maxAge = expireTime;
 
   return res.redirect("/members");
 });
 
 app.get("/login", (req, res) => {
-  let html = `
-        Login
-        <form action="/loginSubmit" method="post">
-        <input type="email" name="email" placeholder="email">
-        <input type="password" name="password" placeholder="password">
-        <input type="submit" value="submit">
-        </form>
-        `;
-  res.send(html);
+  const folder = getPath(req);
+  res.render("login", {
+    navLinks: navLinks,
+    folder: folder,
+  });
 });
 
 app.post("/loginSubmit", async (req, res) => {
+  const folder = getPath(req);
   const email = req.body.email;
   const password = req.body.password;
 
   if (!email) {
-    return res.send(`Email is required. <a href="/login">Try again</a>`);
+    return displayMessage(res, navLinks, folder, "login", "Email is required.");
   }
   if (!password) {
-    return res.send(`Password is required. <a href="/login">Try again</a>`);
+    return displayMessage(
+      res,
+      navLinks,
+      folder,
+      "login",
+      "Password is required.",
+    );
   }
 
-  const schema = Joi.object({
-    email: Joi.string().email().required(),
-    password: Joi.string().max(20).required(),
-  });
-
-  const validationResult = schema.validate({ email, password });
+  const validationResult = loginSchema.validate({ email, password });
   if (validationResult.error != null) {
-    return res.send(`Invalid email/password. <a href="/login">Try again</a>`);
+    return displayMessage(
+      res,
+      navLinks,
+      folder,
+      "login",
+      "Invalid email/password.",
+    );
   }
 
-  const result = await userCollection
-    .find({ email: email })
-    .project({ username: 1, email: 1, password: 1, _id: 1 })
-    .toArray();
+  const result = await userCollection.findOne({ email });
 
-  if (result.length != 1) {
-    return res.send(`Email doesn't exist. <a href="/login">Try again</a>`);
+  if (!result) {
+    return displayMessage(
+      res,
+      navLinks,
+      folder,
+      "login",
+      "Email does not exist.",
+    );
   }
-  if (await bcrypt.compare(password, result[0].password)) {
+  if (await bcrypt.compare(password, result.password)) {
     req.session.authenticated = true;
-    req.session.username = result[0].username;
+    req.session.username = result.username;
+    req.session.email = result.email;
+    req.session.user_type = result.user_type;
     req.session.cookie.maxAge = expireTime;
 
     return res.redirect("/members");
   } else {
-    return res.send(`Invalid password. <a href="/login">Try again</a>`);
+    return displayMessage(res, navLinks, folder, "login", "Password is wrong.");
   }
 });
 
@@ -186,26 +274,67 @@ app.get("/logout", (req, res) => {
   return res.redirect("/");
 });
 
-app.get("/members", (req, res) => {
-  if (!req.session.authenticated) {
-    return res.redirect("/");
-  }
-
+app.get("/members", isValidSession, (req, res) => {
+  const folder = getPath(req);
   const images = ["image1.jpg", "image2.jpg", "image3.jpg"];
-  const randomImage = images[Math.floor(Math.random() * images.length)];
 
-  res.send(`
-      <h2>Hello, ${req.session.username}.</h2>
-      <img src="/${randomImage}" alt="image" width="300px">
-      <a href="/logout">
-      <button>Logout</button>
-      </a>  
-    `);
+  res.render("members", {
+    username: req.session.username,
+    images: images,
+    navLinks: navLinks,
+    folder: folder,
+  });
 });
 
+app.get("/admin", isValidSession, adminAuthorization, async (req, res) => {
+  const folder = getPath(req);
+  const users = await userCollection.find().toArray();
+  res.render("admin", {
+    navLinks: navLinks,
+    folder: folder,
+    users: users,
+    email: req.session.email,
+  });
+});
+
+app.post(
+  "/admin/promote",
+  isValidSession,
+  adminAuthorization,
+  async (req, res) => {
+    const { email } = req.body;
+    const validatedResult = emailSchema.validate(email);
+    if (validatedResult.error) {
+      return res.redirect("/admin");
+    }
+    await userCollection.updateOne({ email }, { $set: { user_type: "admin" } });
+    res.redirect("/admin");
+  },
+);
+
+app.post(
+  "/admin/demote",
+  isValidSession,
+  adminAuthorization,
+  async (req, res) => {
+    const { email } = req.body;
+    const validatedResult = emailSchema.validate(email);
+    if (validatedResult.error) {
+      return res.redirect("/admin");
+    }
+
+    await userCollection.updateOne({ email }, { $set: { user_type: "user" } });
+    res.redirect("/admin");
+  },
+);
+
 app.use((req, res) => {
+  const folder = getPath(req);
   res.status(404);
-  res.send("page not found - 404");
+  res.render("404", {
+    navLinks: navLinks,
+    folder: folder,
+  });
 });
 
 app.listen(port, (req, res) => {

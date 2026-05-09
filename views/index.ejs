@@ -1,0 +1,25 @@
+<%- include("templates/header" , {navLinks: navLinks, folder: folder}) %>
+
+<div class="container text-center mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-body p-5">
+          <h1 class="mb-4">Home</h1>
+
+          <div class="d-flex justify-content-center gap-3">
+            <a href="/signUp">
+              <button class="btn btn-primary btn-lg">Sign Up</button>
+            </a>
+
+            <a href="/login">
+              <button class="btn btn-success btn-lg">Login</button>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include("templates/footer") %>

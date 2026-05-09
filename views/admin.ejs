@@ -1,0 +1,32 @@
+<%- include("templates/header" , {
+  navLinks: navLinks,
+  folder: folder
+}) %>
+
+<div class="container mt-5">
+
+  <div class="card shadow-sm border-0">
+
+    <div class="card-body p-4">
+
+      <h1 class="mb-4 text-center">
+        User Management
+      </h1>
+
+      <ul class="list-group">
+
+        <% for (let i = 0; i < users.length; i++) { %>
+
+          <%- include("template/user", {user: users[i], currentEmail: email}) %>
+
+        <% } %>
+
+      </ul>
+
+    </div>
+
+  </div>
+
+</div>
+
+<%- include("templates/footer") %>
