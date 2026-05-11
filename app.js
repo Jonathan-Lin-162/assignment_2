@@ -97,7 +97,7 @@ function adminAuthorization(req, res, next) {
     return res.render("message", {
       navLinks: navLinks,
       folder: folder,
-      message: "You are not authorized.",
+      message: "403 - You are not authorized.",
       redirect: "",
     });
   } else {
