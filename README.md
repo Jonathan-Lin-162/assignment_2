@@ -1,6 +1,6 @@
-# assignment_1
+# assignment_2
 
-# COMP 2537 Assignment 1
+# COMP 2537 Assignment 2
 
 # Student Info
 
@@ -9,8 +9,8 @@ Set: 1C
 
 # Links
 
-- Live Site: https://assignment-1-dzmj.onrender.com
-- Demo Video: https://youtu.be/ZkrFWLuDgg4
+- Live Site: https://assignment-2-qzai.onrender.com
+- Demo Video: https://youtu.be/i_zilb6tvwY
 
 # Notes
 
